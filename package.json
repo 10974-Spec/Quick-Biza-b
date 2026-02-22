@@ -1,7 +1,7 @@
 {
-  "name": "sokoflow-backend",
+  "name": "quickbiza-backend",
   "version": "1.0.0",
-  "description": "Backend API for SokoFlow POS System",
+  "description": "Backend API for QuickBiza POS System",
   "main": "server.js",
   "type": "module",
   "scripts": {

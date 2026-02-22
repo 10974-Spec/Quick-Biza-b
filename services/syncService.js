@@ -1,6 +1,6 @@
 /**
  * ============================================================
- *  SokoFlow POS — Hybrid Cloud Sync Service
+ *  QuickBiza POS — Hybrid Cloud Sync Service
  * ============================================================
  *
  *  Two sync modes:
@@ -92,7 +92,73 @@ async function upsertOne(Model, doc, company_id) {
     return upsertMany(Model, [doc], company_id);
 }
 
-// ─── Per-Table Sync Functions ─────────────────────────────────────────────────
+// ─── Sync Queue Helpers ───────────────────────────────────────────────────────
+
+// Tables that carry per-row sync metadata (added by db.js migration)
+const TRACKABLE_TABLES = new Set(['sales', 'products', 'customers', 'orders', 'expenses', 'purchases']);
+
+/**
+ * Enqueue a record for cloud sync.
+ * Call this immediately after every write (INSERT/UPDATE).
+ */
+export function enqueueSync(table, recordId) {
+    try {
+        // Remove any existing entry so we don't accumulate duplicates
+        db.prepare('DELETE FROM sync_queue WHERE table_name = ? AND record_id = ?').run(table, recordId);
+        db.prepare(`
+            INSERT INTO sync_queue (table_name, record_id, operation, created_at)
+            VALUES (?, ?, 'upsert', datetime('now'))
+        `).run(table, recordId);
+        // Mark the row as pending
+        if (TRACKABLE_TABLES.has(table)) {
+            try {
+                db.prepare(`UPDATE ${table} SET sync_status = 'pending', updated_at = datetime('now') WHERE id = ?`).run(recordId);
+            } catch (_) { }
+        }
+    } catch (err) {
+        console.warn('⚡ enqueueSync failed:', err.message);
+    }
+}
+
+/**
+ * Mark a record as synced in both the main table and the queue.
+ */
+function markSynced(table, recordId) {
+    try {
+        db.prepare('DELETE FROM sync_queue WHERE table_name = ? AND record_id = ?').run(table, recordId);
+        if (TRACKABLE_TABLES.has(table)) {
+            try {
+                db.prepare(`UPDATE ${table} SET sync_status = 'synced' WHERE id = ?`).run(recordId);
+            } catch (_) { }
+        }
+    } catch (_) { }
+}
+
+/**
+ * Process the sync_queue — retry any pending entries (up to 5 attempts).
+ * Called at the end of each scheduled full sweep.
+ */
+async function processQueue(company_id) {
+    const pending = db.prepare(`
+        SELECT * FROM sync_queue WHERE retry_count < 5 ORDER BY created_at LIMIT 50
+    `).all();
+    if (!pending.length) return;
+
+    for (const entry of pending) {
+        try {
+            await syncRecord(entry.table_name, entry.record_id);
+            markSynced(entry.table_name, entry.record_id);
+        } catch (_) {
+            db.prepare(`
+                UPDATE sync_queue
+                SET retry_count = retry_count + 1, last_attempt = datetime('now')
+                WHERE id = ?
+            `).run(entry.id);
+        }
+    }
+}
+
+
 
 function buildSaleDoc(s, saleItems, payments) {
     return {
@@ -370,6 +436,9 @@ async function runSync() {
         if (total > 0) {
             console.log(`☁️  Cloud sync complete — ${total} records at ${syncState.lastSyncAt.toISOString()}`);
         }
+
+        // Drain any queued/failed records from previous offline period
+        await processQueue(company_id);
     } catch (error) {
         syncState.status = 'error';
         syncState.lastSyncError = error.message;

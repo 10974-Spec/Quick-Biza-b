@@ -22,8 +22,8 @@ router.post('/', upload.single('screenshot'), async (req, res) => {
         // In a real production environment, you would use Nodemailer or SendGrid here:
         /*
         await transporter.sendMail({
-            from: '"SokoFlow System" <system@sokoflow.com>',
-            to: process.env.ADMIN_EMAIL || 'support@sokoflow.com',
+            from: '"QuickBiza System" <system@quickbiza.com>',
+            to: process.env.ADMIN_EMAIL || 'support@quickbiza.com',
             subject: `[${feedbackType.toUpperCase()}] New Feedback from ${company}`,
             text: message,
             attachments: screenshot ? [{ path: screenshot.path }] : []

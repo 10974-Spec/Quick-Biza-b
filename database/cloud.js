@@ -15,9 +15,9 @@ export const connectCloudDB = async () => {
     try {
         await mongoose.connect(MONGO_URI);
         isConnected = true;
-        console.log("✅ Connected to Aroma Cloud (MongoDB)");
+        console.log("✅ Connected to QuickBiza Cloud (MongoDB)");
     } catch (error) {
-        console.error("❌ Failed to connect to Aroma Cloud:", error.message);
+        console.error("❌ Failed to connect to QuickBiza Cloud:", error.message);
         // Don't crash — system works offline
     }
 };

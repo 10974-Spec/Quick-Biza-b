@@ -231,7 +231,7 @@ class PrinterFormatter {
         this.printer.drawLine();
         this.printer.println("Thank you for shopping with us!");
         this.printer.println("Karibu Tena!");
-        this.printer.println("Powered by AromaPOS");
+        this.printer.println("Powered by QuickBizaPOS");
 
         this.printer.cut();
 

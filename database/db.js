@@ -894,6 +894,30 @@ export async function seedDatabase() {
     `).run('COMMUNITY-FREE-LICENSE', new Date().toISOString(), expiryDate.toISOString(), defaultModules);
     console.log('✅ Default community license initialized');
   }
+
+  // ── Offline-First: Sync Queue ─────────────────────────────────────────────
+  // Tracks every unsynced write so we can retry failed cloud pushes granularly.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name   TEXT    NOT NULL,
+      record_id    INTEGER NOT NULL,
+      operation    TEXT    NOT NULL DEFAULT 'upsert',
+      retry_count  INTEGER NOT NULL DEFAULT 0,
+      created_at   TEXT    DEFAULT (datetime('now')),
+      last_attempt TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_sync_queue_table ON sync_queue(table_name, record_id);
+  `);
+
+  // ── Offline-First: Per-Record Sync Metadata ───────────────────────────────
+  // ALTER TABLE is idempotent via try/catch — safe on both fresh and existing DBs.
+  const metaTables = ['sales', 'products', 'customers', 'orders', 'expenses', 'purchases'];
+  for (const t of metaTables) {
+    try { db.exec(`ALTER TABLE ${t} ADD COLUMN sync_status TEXT DEFAULT 'pending'`); } catch (_) { }
+    try { db.exec(`ALTER TABLE ${t} ADD COLUMN device_id   TEXT`); } catch (_) { }
+    try { db.exec(`ALTER TABLE ${t} ADD COLUMN updated_at  TEXT DEFAULT (datetime('now'))`); } catch (_) { }
+  }
 }
 
 // Initialize on import
@@ -901,3 +925,4 @@ initializeDatabase();
 await seedDatabase();
 
 export default db;
+

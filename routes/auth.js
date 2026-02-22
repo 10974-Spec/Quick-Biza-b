@@ -39,7 +39,7 @@ router.post('/login', async (req, res) => {
         if (req.body.source !== 'web') {
             const license = db.prepare('SELECT status, expiry_date FROM license_store ORDER BY id DESC LIMIT 1').get();
             if (!license) {
-                return res.status(403).json({ error: 'Please get a license first to access SokoFlow.', code: 'LICENSE_MISSING' });
+                return res.status(403).json({ error: 'Please get a license first to access QuickBiza.', code: 'LICENSE_MISSING' });
             }
             if (license.status === 'expired' || (license.expiry_date && new Date(license.expiry_date) < new Date())) {
                 return res.status(403).json({ error: 'Your license has expired. Please reactivate.', code: 'LICENSE_EXPIRED' });

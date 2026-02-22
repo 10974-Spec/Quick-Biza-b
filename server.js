@@ -38,6 +38,7 @@ import payrollRoutes from './routes/payroll.js';
 import uploadRoutes from './routes/upload.js';
 import rolesRoutes from './routes/roles.js';
 import feedbackRoutes from './routes/feedback.js';
+import syncRoutes from './routes/sync.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { connectCloudDB } from './database/cloud.js';
@@ -113,6 +114,7 @@ app.use('/api/import', importRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/roles', rolesRoutes);
+app.use('/api/sync', syncRoutes);
 
 // Serve uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -192,7 +194,7 @@ io.on('connection', (socket) => {
 
 // Start server
 httpServer.listen(PORT, () => {
-    console.log(`🚀 Aroma Bakery POS Server running on port ${PORT}`);
+    console.log(`🚀 QuickBiza POS Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔗 API: http://localhost:${PORT}`);
     console.log(`📡 WebSocket: Enabled`);
