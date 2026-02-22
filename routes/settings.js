@@ -6,15 +6,15 @@ import db from '../database/db.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import os from 'os';
 
 const router = express.Router();
+const _settingsUploadBase = process.env.USER_DATA_PATH || path.join(os.homedir(), '.config', 'quickbiza');
 
 // Configure storage for logo uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        const uploadDir = path.join(__dirname, '../../uploads');
+        const uploadDir = path.join(_settingsUploadBase, 'uploads');
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }

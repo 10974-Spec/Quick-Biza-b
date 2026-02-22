@@ -4,10 +4,13 @@ import { importController } from '../controllers/importController.js';
 import path from 'path';
 import fs from 'fs';
 
+import os from 'os';
+
 const router = express.Router();
 
-// Configure Multer
-const uploadDir = 'uploads/imports';
+// Configure Multer — must write to a user-writable path in packaged app
+const baseUploadDir = process.env.USER_DATA_PATH || path.join(os.homedir(), '.config', 'quickbiza');
+const uploadDir = path.join(baseUploadDir, 'uploads', 'imports');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }

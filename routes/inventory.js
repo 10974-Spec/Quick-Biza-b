@@ -12,9 +12,8 @@ router.get('/raw', authenticateToken, (req, res) => {
       SELECT ir.*, i.name, i.unit, i.low_stock_threshold
       FROM inventory_raw ir
       JOIN ingredients i ON ir.ingredient_id = i.id
-      WHERE i.company_id = ?
       ORDER BY i.name
-    `).all(companyId);
+    `).all();
 
         res.json(inventory);
     } catch (error) {
@@ -50,9 +49,9 @@ router.get('/alerts', authenticateToken, (req, res) => {
       SELECT ir.*, i.name, i.unit, i.low_stock_threshold
       FROM inventory_raw ir
       JOIN ingredients i ON ir.ingredient_id = i.id
-      WHERE ir.quantity <= i.low_stock_threshold AND i.company_id = ?
+      WHERE ir.quantity <= i.low_stock_threshold
       ORDER BY ir.quantity ASC
-    `).all(companyId);
+    `).all();
 
         const lowStockFinished = db.prepare(`
       SELECT if.*, p.name, p.emoji

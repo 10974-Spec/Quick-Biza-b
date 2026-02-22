@@ -5,8 +5,15 @@ import activityLogger from '../services/activityLogger.js';
 import bcrypt from 'bcrypt';
 import multer from 'multer';
 
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+
 const router = express.Router();
-const upload = multer({ dest: 'uploads/profiles/' });
+const _uploadsBase = process.env.USER_DATA_PATH || path.join(os.homedir(), '.config', 'quickbiza');
+const _profilesDir = path.join(_uploadsBase, 'uploads', 'profiles');
+if (!fs.existsSync(_profilesDir)) fs.mkdirSync(_profilesDir, { recursive: true });
+const upload = multer({ dest: _profilesDir });
 
 // Get all users (admin only)
 router.get('/', authenticateToken, requireRole('admin'), (req, res) => {

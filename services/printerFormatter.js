@@ -21,11 +21,11 @@ class PrinterFormatter {
             const path = await import('path');
             const fs = await import('fs');
 
-            let logoPath = path.join(process.cwd(), 'frontend/public/logo.png');
+            let logoPath = path.join(process.cwd(), 'frontend/public/Appicon.png');
 
             // Check if running in electron/packaged environment
             if (process.resourcesPath) {
-                const potentialPath = path.join(process.resourcesPath, 'frontend/public/logo.png');
+                const potentialPath = path.join(process.resourcesPath, 'frontend/public/Appicon.png');
                 if (fs.existsSync(potentialPath)) {
                     logoPath = potentialPath;
                 }

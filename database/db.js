@@ -720,6 +720,87 @@ export function initializeDatabase() {
   `);
   try { db.exec("ALTER TABLE activity_logs ADD COLUMN ip_address TEXT"); } catch (_) { }
 
+  // --- NEW MODULES MIGRATIONS ---
+  // Ensure payroll tables exist for legacy live databases
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payroll_components (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id INTEGER DEFAULT 1,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('earning', 'deduction', 'tax', 'reimbursement')),
+      calculation_type TEXT NOT NULL CHECK(calculation_type IN ('fixed', 'percentage', 'formula')),
+      formula TEXT,
+      active INTEGER DEFAULT 1,
+      taxable INTEGER DEFAULT 1,
+      pensionable INTEGER DEFAULT 0,
+      run_order INTEGER DEFAULT 0,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS employee_payroll_data (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL UNIQUE,
+      basic_salary REAL DEFAULT 0,
+      bank_name TEXT,
+      account_number TEXT,
+      tax_pin TEXT,
+      nssf_number TEXT,
+      nhif_number TEXT,
+      payment_method TEXT DEFAULT 'bank' CHECK(payment_method IN ('bank', 'mpesa', 'cash', 'check')),
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payroll_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id INTEGER DEFAULT 1,
+      period_start DATE NOT NULL,
+      period_end DATE NOT NULL,
+      run_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'processed')),
+      total_gross REAL DEFAULT 0,
+      total_net REAL DEFAULT 0,
+      approved_by INTEGER,
+      FOREIGN KEY (approved_by) REFERENCES users(id)
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payslips (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payroll_run_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      basic_salary REAL DEFAULT 0,
+      gross_pay REAL DEFAULT 0,
+      total_deductions REAL DEFAULT 0,
+      net_pay REAL DEFAULT 0,
+      FOREIGN KEY (payroll_run_id) REFERENCES payroll_runs(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payslip_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payslip_id INTEGER NOT NULL,
+      component_name TEXT NOT NULL,
+      component_type TEXT NOT NULL,
+      amount REAL NOT NULL,
+      FOREIGN KEY (payslip_id) REFERENCES payslips(id)
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payroll_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id INTEGER DEFAULT 1 UNIQUE,
+      pay_frequency TEXT DEFAULT 'monthly' CHECK(pay_frequency IN ('weekly', 'bi-weekly', 'monthly')),
+      currency TEXT DEFAULT 'KES',
+      overtime_enabled INTEGER DEFAULT 1,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   console.log('✅ Database schema initialized');
 }
 
