@@ -91,21 +91,7 @@ const allowedOrigins = [
     'app://',
 ];
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (Electron file://, curl, mobile apps, same-server)
-        if (!origin) return callback(null, true);
-        
-        // Strip trailing slash if present for strict matching
-        const cleanOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
-        
-        if (allowedOrigins.includes(cleanOrigin) || cleanOrigin.includes('vercel.app')) {
-            callback(null, true);
-        } else {
-            console.warn(`CORS blocked request from origin: ${origin}`);
-            callback(new Error('Not allowed by CORS')); 
-        }
-    },
-    credentials: true,
+    origin: '*', // Forcefully allow ALL origins to bypass any strict browser preflight checks
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
