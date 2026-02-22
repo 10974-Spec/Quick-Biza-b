@@ -93,16 +93,25 @@ const allowedOrigins = [
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (Electron file://, curl, mobile apps, same-server)
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin) return callback(null, true);
+        
+        // Strip trailing slash if present for strict matching
+        const cleanOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+        
+        if (allowedOrigins.includes(cleanOrigin) || cleanOrigin.includes('vercel.app')) {
             callback(null, true);
         } else {
-            callback(null, false); // Silently reject unknown origins (don't error)
+            console.warn(`CORS blocked request from origin: ${origin}`);
+            callback(new Error('Not allowed by CORS')); 
         }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
+
+// Pre-flight OPTIONS handler for all routes
+app.options('*', cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
