@@ -7,12 +7,14 @@ const router = express.Router();
 // Get raw materials inventory
 router.get('/raw', authenticateToken, (req, res) => {
     try {
+        const companyId = req.user?.company_id || 1;
         const inventory = db.prepare(`
       SELECT ir.*, i.name, i.unit, i.low_stock_threshold
       FROM inventory_raw ir
       JOIN ingredients i ON ir.ingredient_id = i.id
+      WHERE i.company_id = ?
       ORDER BY i.name
-    `).all();
+    `).all(companyId);
 
         res.json(inventory);
     } catch (error) {
@@ -24,13 +26,14 @@ router.get('/raw', authenticateToken, (req, res) => {
 // Get finished goods inventory
 router.get('/finished', authenticateToken, (req, res) => {
     try {
+        const companyId = req.user?.company_id || 1;
         const inventory = db.prepare(`
       SELECT if.*, p.name, p.price, p.emoji
       FROM inventory_finished if
       JOIN products p ON if.product_id = p.id
-      WHERE p.active = 1
+      WHERE p.active = 1 AND p.company_id = ?
       ORDER BY p.name
-    `).all();
+    `).all(companyId);
 
         res.json(inventory);
     } catch (error) {
@@ -42,21 +45,22 @@ router.get('/finished', authenticateToken, (req, res) => {
 // Get low stock alerts
 router.get('/alerts', authenticateToken, (req, res) => {
     try {
+        const companyId = req.user?.company_id || 1;
         const lowStockRaw = db.prepare(`
       SELECT ir.*, i.name, i.unit, i.low_stock_threshold
       FROM inventory_raw ir
       JOIN ingredients i ON ir.ingredient_id = i.id
-      WHERE ir.quantity <= i.low_stock_threshold
+      WHERE ir.quantity <= i.low_stock_threshold AND i.company_id = ?
       ORDER BY ir.quantity ASC
-    `).all();
+    `).all(companyId);
 
         const lowStockFinished = db.prepare(`
       SELECT if.*, p.name, p.emoji
       FROM inventory_finished if
       JOIN products p ON if.product_id = p.id
-      WHERE if.quantity <= 10 AND p.active = 1
+      WHERE if.quantity <= 10 AND p.active = 1 AND p.company_id = ?
       ORDER BY if.quantity ASC
-    `).all();
+    `).all(companyId);
 
         res.json({
             raw_materials: lowStockRaw,
@@ -142,15 +146,16 @@ router.post('/waste', authenticateToken, (req, res) => {
 router.get('/logs', authenticateToken, (req, res) => {
     try {
         const { type, limit = 100 } = req.query;
+        const companyId = req.user?.company_id || 1;
 
         let query = `
       SELECT il.*, u.full_name as created_by_name
       FROM inventory_logs il
       LEFT JOIN users u ON il.created_by = u.id
-      WHERE 1=1
+      WHERE u.company_id = ?
     `;
 
-        const params = [];
+        const params = [companyId];
 
         if (type) {
             query += ' AND il.type = ?';

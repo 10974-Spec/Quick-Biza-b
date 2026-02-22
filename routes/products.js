@@ -6,18 +6,19 @@ import { syncRecord } from '../services/syncService.js';
 const router = express.Router();
 
 // Get all products
-router.get('/', (req, res) => {
+router.get('/', authenticateToken, (req, res) => {
     try {
         const { search, category } = req.query;
+        const companyId = req.user?.company_id || 1;
 
         let query = `
       SELECT p.*, c.name as category_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.active = 1
+      WHERE p.active = 1 AND p.company_id = ?
     `;
 
-        const params = [];
+        const params = [companyId];
 
         if (search) {
             query += ' AND p.name LIKE ?';
@@ -50,14 +51,15 @@ router.get('/', (req, res) => {
 });
 
 // Get single product
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticateToken, (req, res) => {
     try {
+        const companyId = req.user?.company_id || 1;
         const product = db.prepare(`
       SELECT p.*, c.name as category_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.id = ?
-    `).get(req.params.id);
+      WHERE p.id = ? AND p.company_id = ?
+    `).get(req.params.id, companyId);
 
         if (!product) {
             return res.status(404).json({ error: 'Product not found' });
@@ -89,15 +91,16 @@ router.get('/:id', (req, res) => {
 router.post('/', authenticateToken, requireRole('admin', 'manager'), (req, res) => {
     try {
         const { name, category_id, price, barcode, emoji, description } = req.body;
+        const companyId = req.user?.company_id || 1;
 
         if (!name || !price) {
             return res.status(400).json({ error: 'Name and price are required' });
         }
 
         const result = db.prepare(`
-      INSERT INTO products (name, category_id, price, barcode, emoji, description)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, category_id, price, barcode, emoji, description);
+      INSERT INTO products (name, category_id, company_id, price, barcode, emoji, description)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(name, category_id, companyId, price, barcode, emoji, description);
 
         // Initialize inventory for this product
         db.prepare('INSERT INTO inventory_finished (product_id, quantity) VALUES (?, ?)').run(result.lastInsertRowid, 0);
@@ -116,12 +119,17 @@ router.post('/', authenticateToken, requireRole('admin', 'manager'), (req, res) 
 router.put('/:id', authenticateToken, requireRole('admin', 'manager'), (req, res) => {
     try {
         const { name, category_id, price, barcode, emoji, description } = req.body;
+        const companyId = req.user?.company_id || 1;
 
-        db.prepare(`
+        const result = db.prepare(`
       UPDATE products
       SET name = ?, category_id = ?, price = ?, barcode = ?, emoji = ?, description = ?
-      WHERE id = ?
-    `).run(name, category_id, price, barcode, emoji, description, req.params.id);
+      WHERE id = ? AND company_id = ?
+    `).run(name, category_id, price, barcode, emoji, description, req.params.id, companyId);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Product not found or unauthorized' });
+        }
 
         // Real-time cloud sync
         syncRecord('products', req.params.id).catch(() => { });
@@ -136,7 +144,11 @@ router.put('/:id', authenticateToken, requireRole('admin', 'manager'), (req, res
 // Delete product (Admin only)
 router.delete('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     try {
-        db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(req.params.id);
+        const companyId = req.user?.company_id || 1;
+        const result = db.prepare('UPDATE products SET active = 0 WHERE id = ? AND company_id = ?').run(req.params.id, companyId);
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Product not found or unauthorized' });
+        }
         res.json({ message: 'Product deleted successfully' });
     } catch (error) {
         console.error('Error deleting product:', error);
@@ -145,9 +157,10 @@ router.delete('/:id', authenticateToken, requireRole('admin'), (req, res) => {
 });
 
 // Get all categories
-router.get('/api/categories', (req, res) => {
+router.get('/api/categories', authenticateToken, (req, res) => {
     try {
-        const categories = db.prepare('SELECT * FROM categories ORDER BY name').all();
+        const companyId = req.user?.company_id || 1;
+        const categories = db.prepare('SELECT * FROM categories WHERE company_id = ? ORDER BY name').all(companyId);
         res.json(categories);
     } catch (error) {
         console.error('Error fetching categories:', error);

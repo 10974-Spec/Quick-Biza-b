@@ -139,16 +139,17 @@ router.post('/', authenticateToken, (req, res) => {
 router.get('/', authenticateToken, (req, res) => {
     try {
         const { start_date, end_date, limit = 50 } = req.query;
+        const companyId = req.user?.company_id || 1;
 
         let query = `
       SELECT s.*, u.full_name as cashier_name, c.name as customer_name
       FROM sales s
       LEFT JOIN users u ON s.cashier_id = u.id
       LEFT JOIN customers c ON s.customer_id = c.id
-      WHERE 1=1
+      WHERE u.company_id = ?
     `;
 
-        const params = [];
+        const params = [companyId];
 
         if (start_date) {
             query += ' AND DATE(s.created_at) >= ?';
@@ -174,13 +175,14 @@ router.get('/', authenticateToken, (req, res) => {
 // Get single sale with items
 router.get('/:id', authenticateToken, (req, res) => {
     try {
+        const companyId = req.user?.company_id || 1;
         const sale = db.prepare(`
       SELECT s.*, u.full_name as cashier_name, c.name as customer_name
       FROM sales s
       LEFT JOIN users u ON s.cashier_id = u.id
       LEFT JOIN customers c ON s.customer_id = c.id
-      WHERE s.id = ?
-    `).get(req.params.id);
+      WHERE s.id = ? AND u.company_id = ?
+    `).get(req.params.id, companyId);
 
         if (!sale) {
             return res.status(404).json({ error: 'Sale not found' });
@@ -199,15 +201,18 @@ router.get('/:id', authenticateToken, (req, res) => {
 // Get today's sales summary
 router.get('/summary/today', authenticateToken, (req, res) => {
     try {
+        const companyId = req.user?.company_id || 1;
         const summary = db.prepare(`
       SELECT 
         COUNT(*) as total_sales,
-        COALESCE(SUM(total), 0) as total_revenue,
-        COALESCE(SUM(discount_amount), 0) as total_discounts
-      FROM sales
-      WHERE DATE(created_at) = DATE('now')
-      AND status = 'completed'
-    `).get();
+        COALESCE(SUM(s.total), 0) as total_revenue,
+        COALESCE(SUM(s.discount_amount), 0) as total_discounts
+      FROM sales s
+      JOIN users u ON s.cashier_id = u.id
+      WHERE DATE(s.created_at) = DATE('now')
+      AND s.status = 'completed'
+      AND u.company_id = ?
+    `).get(companyId);
 
         // Payment breakdown
         const paymentBreakdown = db.prepare(`
@@ -217,10 +222,12 @@ router.get('/summary/today', authenticateToken, (req, res) => {
         COALESCE(SUM(p.amount), 0) as total
       FROM payments p
       JOIN sales s ON p.sale_id = s.id
+      JOIN users u ON s.cashier_id = u.id
       WHERE DATE(s.created_at) = DATE('now')
       AND p.status = 'completed'
+      AND u.company_id = ?
       GROUP BY p.method
-    `).all();
+    `).all(companyId);
 
         res.json({ ...summary, payment_breakdown: paymentBreakdown });
     } catch (error) {

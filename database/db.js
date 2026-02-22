@@ -42,13 +42,26 @@ export function initializeDatabase() {
     );
   `);
 
+  // Roles table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS roles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      permissions TEXT,
+      is_system INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Categories table
   db.exec(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
       description TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      company_id INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(name, company_id)
     );
   `);
 
@@ -58,13 +71,15 @@ export function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       category_id INTEGER,
+      company_id INTEGER DEFAULT 1,
       price REAL NOT NULL,
-      barcode TEXT UNIQUE,
+      barcode TEXT,
       emoji TEXT,
       description TEXT,
       active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (category_id) REFERENCES categories(id)
+      FOREIGN KEY (category_id) REFERENCES categories(id),
+      UNIQUE(barcode, company_id)
     );
   `);
 
@@ -942,6 +957,10 @@ export async function seedDatabase() {
     try { db.exec(`ALTER TABLE ${t} ADD COLUMN device_id   TEXT`); } catch (_) { }
     try { db.exec(`ALTER TABLE ${t} ADD COLUMN updated_at  TEXT DEFAULT (datetime('now'))`); } catch (_) { }
   }
+
+  // ── Multi-Tenant Migrations ───────────────────────────────────────────────
+  try { db.exec(`ALTER TABLE products ADD COLUMN company_id INTEGER DEFAULT 1`); } catch (_) { }
+  try { db.exec(`ALTER TABLE categories ADD COLUMN company_id INTEGER DEFAULT 1`); } catch (_) { }
 }
 
 // Initialize on import

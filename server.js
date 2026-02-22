@@ -224,12 +224,12 @@ io.on('connection', (socket) => {
 });
 
 
-// Start server
-httpServer.listen(PORT, () => {
-    console.log(`🚀 QuickBiza POS Server running on port ${PORT}`);
-    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔗 API: http://localhost:${PORT}`);
-    console.log(`📡 WebSocket: Enabled`);
+// Start server — bind to 127.0.0.1 for stable Windows resolution
+const HOST = process.env.HOST || '127.0.0.1';
+httpServer.listen(PORT, HOST, () => {
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`🚀 QuickBiza POS backend on http://${HOST}:${PORT}`);
+    }
     // Ensure default system users exist (admin + dev) on every startup
     ensureDefaultUsers().catch(e => console.error('ensureDefaultUsers error:', e));
     // Start cloud sync scheduler
