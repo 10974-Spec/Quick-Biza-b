@@ -149,7 +149,10 @@ app.use('/api/roles', rolesRoutes);
 app.use('/api/sync', syncRoutes);
 
 // Serve uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+const uploadDir = process.env.USER_DATA_PATH
+    ? path.join(process.env.USER_DATA_PATH, 'uploads')
+    : path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadDir));
 
 // Categories endpoint
 app.get('/api/categories', (req, res) => {

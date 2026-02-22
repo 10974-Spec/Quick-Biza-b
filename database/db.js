@@ -693,96 +693,32 @@ export function initializeDatabase() {
     );
   `);
   // Check and add permissions column if missing (Migration)
-  try {
-    const tableInfo = db.prepare('PRAGMA table_info(users)').all();
-    const hasPermissions = tableInfo.some(col => col.name === 'permissions');
-    const hasLastLogin = tableInfo.some(col => col.name === 'last_login');
+  try { db.exec('ALTER TABLE users ADD COLUMN permissions TEXT'); } catch (_) { }
+  try { db.exec('ALTER TABLE users ADD COLUMN last_login DATETIME'); } catch (_) { }
 
-    if (!hasPermissions) {
-      console.log('🔄 Migrating: Adding permissions column to users table...');
-      db.prepare('ALTER TABLE users ADD COLUMN permissions TEXT').run();
-      console.log('✅ Migration successful: permissions column added.');
-    }
+  // Devices table migrations
+  try { db.exec("ALTER TABLE devices ADD COLUMN device_category TEXT DEFAULT 'software'"); } catch (_) { }
+  try { db.exec("ALTER TABLE devices ADD COLUMN vendor_id TEXT"); } catch (_) { }
+  try { db.exec("ALTER TABLE devices ADD COLUMN product_id TEXT"); } catch (_) { }
+  try { db.exec("ALTER TABLE devices ADD COLUMN path TEXT"); } catch (_) { }
+  try { db.exec("ALTER TABLE devices ADD COLUMN last_active DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch (_) { }
 
-    if (!hasLastLogin) {
-      console.log('🔄 Migrating: Adding last_login column to users table...');
-      db.prepare('ALTER TABLE users ADD COLUMN last_login DATETIME').run();
-      console.log('✅ Migration successful: last_login column added.');
-    }
+  // Products table migrations
+  try { db.exec("ALTER TABLE products ADD COLUMN emoji TEXT"); } catch (_) { }
+  try { db.exec("ALTER TABLE products ADD COLUMN description TEXT"); } catch (_) { }
 
-    // Devices table migrations
-    const devicesTableInfo = db.prepare('PRAGMA table_info(devices)').all();
-    const hasDeviceCategory = devicesTableInfo.some(col => col.name === 'device_category');
-    const hasVendorId = devicesTableInfo.some(col => col.name === 'vendor_id');
-    const hasProductId = devicesTableInfo.some(col => col.name === 'product_id');
-
-    if (!hasDeviceCategory) {
-      console.log('🔄 Migrating: Adding device_category to devices table...');
-      db.prepare("ALTER TABLE devices ADD COLUMN device_category TEXT DEFAULT 'software'").run();
-      console.log('✅ Migration successful: device_category added.');
-    }
-
-    if (!hasVendorId) {
-      console.log('🔄 Migrating: Adding vendor_id to devices table...');
-      db.prepare('ALTER TABLE devices ADD COLUMN vendor_id TEXT').run();
-      console.log('✅ Migration successful: vendor_id added.');
-    }
-
-    if (!hasProductId) {
-      console.log('🔄 Migrating: Adding product_id to devices table...');
-      db.prepare('ALTER TABLE devices ADD COLUMN product_id TEXT').run();
-      db.prepare('ALTER TABLE devices ADD COLUMN path TEXT').run(); // Assuming path is also missing if product_id is
-      db.prepare('ALTER TABLE devices ADD COLUMN last_active DATETIME DEFAULT CURRENT_TIMESTAMP').run();
-      console.log('✅ Migration successful: product_id, path, last_active added.');
-    }
-
-    // Products table migrations
-    const productsTableInfo = db.prepare('PRAGMA table_info(products)').all();
-    const hasEmoji = productsTableInfo.some(col => col.name === 'emoji');
-    const hasDescription = productsTableInfo.some(col => col.name === 'description');
-
-    if (!hasEmoji) {
-      console.log('🔄 Migrating: Adding emoji to products table...');
-      db.prepare('ALTER TABLE products ADD COLUMN emoji TEXT').run();
-      console.log('✅ Migration successful: emoji added.');
-    }
-
-    if (!hasDescription) {
-      console.log('🔄 Migrating: Adding description to products table...');
-      db.prepare('ALTER TABLE products ADD COLUMN description TEXT').run();
-      console.log('✅ Migration successful: description added.');
-    }
-
-    // Activity Logs table (Migration)
-    // Activity Logs table (Migration)
-    const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='activity_logs'").get();
-    if (!tableExists) {
-      console.log('🔄 Migrating: Creating activity_logs table...');
-      db.exec(`
-            CREATE TABLE IF NOT EXISTS activity_logs (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              user_id INTEGER,
-              action TEXT NOT NULL,
-              details TEXT,
-              timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-              FOREIGN KEY (user_id) REFERENCES users(id)
-            );
-        `);
-      console.log('✅ Migration successful: activity_logs table created.');
-    } else {
-      // Migration to add ip_address if missing
-      const activityLogsInfo = db.prepare('PRAGMA table_info(activity_logs)').all();
-      const hasIpAddress = activityLogsInfo.some(col => col.name === 'ip_address');
-      if (!hasIpAddress) {
-        console.log('🔄 Migrating: Adding ip_address to activity_logs table...');
-        db.prepare('ALTER TABLE activity_logs ADD COLUMN ip_address TEXT').run();
-        console.log('✅ Migration successful: ip_address added.');
-      }
-    }
-
-  } catch (error) {
-    console.error('Migration failed:', error);
-  }
+  // Activity Logs table (Migration)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      action TEXT NOT NULL,
+      details TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
+  try { db.exec("ALTER TABLE activity_logs ADD COLUMN ip_address TEXT"); } catch (_) { }
 
   console.log('✅ Database schema initialized');
 }
