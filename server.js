@@ -86,6 +86,8 @@ const allowedOrigins = [
     'http://localhost:5174',
     'http://localhost:3000',
     'http://localhost:5000',
+    'https://quickbiza.vercel.app',
+    'https://quickbiza-web.vercel.app',
     'app://',
 ];
 app.use(cors({
