@@ -229,8 +229,8 @@ io.on('connection', (socket) => {
 });
 
 
-// Start server — bind to 127.0.0.1 for stable Windows resolution
-const HOST = process.env.HOST || '127.0.0.1';
+// Start server — bind to 127.0.0.1 for stable Windows resolution, but 0.0.0.0 on Render
+const HOST = process.env.HOST || (process.env.RENDER ? '0.0.0.0' : '127.0.0.1');
 httpServer.listen(PORT, HOST, () => {
     if (process.env.NODE_ENV !== 'production') {
         console.log(`🚀 QuickBiza POS backend on http://${HOST}:${PORT}`);
