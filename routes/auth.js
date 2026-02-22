@@ -17,29 +17,71 @@ router.post('/login', async (req, res) => {
         }
 
         // Find user
-        const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        let user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        let validPassword = false;
 
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+        if (user) {
+            validPassword = await bcrypt.compare(password, user.password_hash);
         }
 
-        // Check if user is approved
-        if (user.status !== 'approved') {
-            return res.status(403).json({ error: 'Account pending approval' });
+        // --- CLOUD FALLBACK LOGIC ---
+        // If local user not found or password mismatched, attempt Cloud Login API fallback
+        if (!user || !validPassword) {
+            try {
+                const cloudAPI = 'https://quickbiza-api.onrender.com/api';
+
+                // AbortController gives a hard 15-second timeout (Render free tier cold-starts)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+                let cloudRes;
+                try {
+                    cloudRes = await fetch(`${cloudAPI}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password, source: 'desktop-sync' }),
+                        signal: controller.signal
+                    });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+
+                if (cloudRes && cloudRes.ok) {
+                    const data = await cloudRes.json();
+                    const cloudUser = data.user;
+
+                    const hashedPwd = await bcrypt.hash(password, 10);
+                    const companyId = cloudUser.company_id || 1;
+
+                    if (user) {
+                        db.prepare(`UPDATE users SET password_hash = ?, full_name = ?, role = ?, company_id = ? WHERE username = ?`)
+                            .run(hashedPwd, cloudUser.full_name, cloudUser.role, companyId, username);
+                    } else {
+                        db.prepare(`INSERT INTO users (username, password_hash, full_name, role, status, company_id) VALUES (?, ?, ?, ?, 'approved', ?)`)
+                            .run(username, hashedPwd, cloudUser.full_name, cloudUser.role, companyId);
+                    }
+
+                    user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+                    validPassword = true;
+                } else {
+                    return res.status(401).json({ error: 'Invalid credentials' });
+                }
+            } catch (fallbackErr) {
+                if (fallbackErr.name === 'AbortError') {
+                    return res.status(503).json({ error: 'Cloud server is waking up. Please try again in 30 seconds.' });
+                }
+                return res.status(401).json({ error: 'Invalid credentials' });
+            }
         }
 
-        // Verify password
-        const validPassword = await bcrypt.compare(password, user.password_hash);
+        // License Verification (Bypass for Web App portal and admin users)
+        const isWebPortal = req.body.source === 'web';
+        const isAdmin = user && user.role === 'admin';
 
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        // License Verification (Bypass for Web App portal)
-        if (req.body.source !== 'web') {
+        if (!isWebPortal && !isAdmin) {
             const license = db.prepare('SELECT status, expiry_date FROM license_store ORDER BY id DESC LIMIT 1').get();
             if (!license) {
-                return res.status(403).json({ error: 'Please get a license first to access QuickBiza.', code: 'LICENSE_MISSING' });
+                return res.status(403).json({ error: 'Please activate a license to access QuickBiza. Use Get Started to register.', code: 'LICENSE_MISSING' });
             }
             if (license.status === 'expired' || (license.expiry_date && new Date(license.expiry_date) < new Date())) {
                 return res.status(403).json({ error: 'Your license has expired. Please reactivate.', code: 'LICENSE_EXPIRED' });

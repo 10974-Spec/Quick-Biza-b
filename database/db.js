@@ -773,6 +773,23 @@ export function initializeDatabase() {
 }
 
 // Seed initial data
+// Ensure default system accounts always exist (runs on every startup)
+export async function ensureDefaultUsers() {
+  const defaults = [
+    { username: 'admin', password: 'admin123', full_name: 'System Administrator', role: 'admin' },
+    { username: 'dev', password: 'dev123', full_name: 'Developer Account', role: 'admin' },
+  ];
+  for (const u of defaults) {
+    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(u.username);
+    if (!existing) {
+      const hash = await bcrypt.hash(u.password, 10);
+      db.prepare(`INSERT INTO users (username, password_hash, full_name, role, status) VALUES (?, ?, ?, ?, 'approved')`)
+        .run(u.username, hash, u.full_name, u.role);
+      console.log(`✅ Default user ensured: ${u.username}`);
+    }
+  }
+}
+
 export async function seedDatabase() {
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
 
@@ -786,7 +803,14 @@ export async function seedDatabase() {
       VALUES (?, ?, ?, ?, ?)
     `).run('admin', hashedPassword, 'System Administrator', 'admin', 'approved');
 
-    console.log('✅ Default admin user created (username: admin, password: admin123)');
+    // Create default dev user
+    const devHash = await bcrypt.hash('dev123', 10);
+    db.prepare(`
+      INSERT INTO users (username, password_hash, full_name, role, status)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('dev', devHash, 'Developer Account', 'admin', 'approved');
+
+    console.log('✅ Default users created: admin/admin123 and dev/dev123');
 
     // Create default categories
     const categories = [

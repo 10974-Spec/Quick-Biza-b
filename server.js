@@ -21,9 +21,11 @@ import notificationsRoutes from './routes/notifications.js';
 import hardwareRoutes from './routes/hardware.js';
 import returnsRoutes from './routes/returns.js';
 import productionRoutes from './routes/production.js';
-import db from './database/db.js';
+import db, { initializeDatabase, seedDatabase, ensureDefaultUsers } from './database/db.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 // Load environment variables
 dotenv.config();
@@ -51,9 +53,22 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", // Allow all origins for now
+        origin: "*",
         methods: ["GET", "POST"]
     }
+});
+
+// Security hardening
+app.use(helmet({ contentSecurityPolicy: false }));
+app.disable('x-powered-by');
+
+// Rate limiting: max 10 auth attempts per minute per IP
+const authLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: { error: 'Too many login attempts. Please wait 60 seconds.' },
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 
 // Attach io to request for use in routes
@@ -65,28 +80,45 @@ app.use((req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+const allowedOrigins = [
+    'http://localhost:8080',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'app://',
+];
 app.use(cors({
-    origin: true, // Allow any origin
+    origin: (origin, callback) => {
+        // Allow requests with no origin (Electron file://, curl, mobile apps, same-server)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(null, false); // Silently reject unknown origins (don't error)
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    next();
-});
+// Request logging — only in development to avoid exposing server internals
+if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+        console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+        next();
+    });
+}
 
 // Health check
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// API Routes
-app.use('/api/auth', authRoutes);
+// API Routes — apply rate limiter to auth
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/payments', paymentsRoutes);
@@ -198,6 +230,8 @@ httpServer.listen(PORT, () => {
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔗 API: http://localhost:${PORT}`);
     console.log(`📡 WebSocket: Enabled`);
+    // Ensure default system users exist (admin + dev) on every startup
+    ensureDefaultUsers().catch(e => console.error('ensureDefaultUsers error:', e));
     // Start cloud sync scheduler
     startSyncScheduler();
     // Auto-scan hardware devices after a short delay
