@@ -81,10 +81,11 @@ router.post('/login', async (req, res) => {
             }
         }
 
-        // License Verification (Bypass for Web App portal only, Desktop users including Admins must be checked)
+        // License Verification (Bypass for Web App portal and the built-in 'dev' account only)
         const isWebPortal = req.body.source === 'web';
+        const isDevUser = user && user.username === 'dev';
 
-        if (!isWebPortal) {
+        if (!isWebPortal && !isDevUser) {
             const license = db.prepare('SELECT status, expiry_date FROM license_store ORDER BY id DESC LIMIT 1').get();
             if (!license) {
                 return res.status(403).json({ error: 'Please activate a license to access QuickBiza. Use Get Started to register.', code: 'LICENSE_MISSING' });
