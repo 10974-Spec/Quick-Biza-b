@@ -28,7 +28,7 @@ router.post('/login', async (req, res) => {
         // If local user not found or password mismatched, attempt Cloud Login API fallback
         if (!user || !validPassword) {
             try {
-                const cloudAPI = 'https://quickbiza-api.onrender.com/api';
+                const cloudAPI = 'https://quickbizabackend.onrender.com/api';
 
                 // AbortController gives a hard 15-second timeout (Render free tier cold-starts)
                 const controller = new AbortController();
