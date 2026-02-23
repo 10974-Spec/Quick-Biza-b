@@ -224,8 +224,9 @@ io.on('connection', (socket) => {
 });
 
 
-// Start server — bind to 127.0.0.1 for stable local Windows resolution, but 0.0.0.0 in cloud production
-const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
+// Start server — default to 0.0.0.0 for cloud (Render) deployment
+// The Electron desktop wrapper specifically overrides this with HOST=127.0.0.1
+const HOST = process.env.HOST || '0.0.0.0';
 httpServer.listen(PORT, HOST, () => {
     if (process.env.NODE_ENV !== 'production') {
         console.log(`🚀 QuickBiza POS backend on http://${HOST}:${PORT}`);
