@@ -64,7 +64,14 @@ router.post('/login', async (req, res) => {
                     user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
                     validPassword = true;
                 } else {
-                    return res.status(401).json({ error: 'Invalid credentials' });
+                    let cloudData = {};
+                    if (cloudRes) {
+                        try { cloudData = await cloudRes.json(); } catch (e) { }
+                    }
+                    if (cloudData.code && cloudData.code.startsWith('LICENSE_')) {
+                        return res.status(cloudRes.status || 403).json(cloudData);
+                    }
+                    return res.status(401).json({ error: cloudData.error || 'Invalid credentials' });
                 }
             } catch (fallbackErr) {
                 if (fallbackErr.name === 'AbortError') {
