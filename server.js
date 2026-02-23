@@ -69,6 +69,10 @@ const authLimiter = rateLimit({
     message: { error: 'Too many login attempts. Please wait 60 seconds.' },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+        const ip = req.ip || req.connection?.remoteAddress || '';
+        return ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1');
+    }
 });
 
 // Attach io to request for use in routes
