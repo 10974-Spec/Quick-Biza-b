@@ -27,6 +27,19 @@ import { fileURLToPath } from 'url';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
+import fs from 'fs';
+
+// Global error logging for "nuclear debugging" of packaged app crashes
+const logServerCrash = (msg) => {
+    const logPath = process.env.USER_DATA_PATH
+        ? path.join(process.env.USER_DATA_PATH, 'quickbiza-backend.log')
+        : path.join(__dirname, 'error.log');
+    try { fs.appendFileSync(logPath, `\n[SERVER CRASH] ${new Date().toISOString()}\n${msg}\n`); } catch (e) { }
+    console.error(msg);
+};
+process.on('uncaughtException', (err) => logServerCrash(err.stack || err.message || String(err)));
+process.on('unhandledRejection', (reason) => logServerCrash(`Unhandled Rejection: ${reason}`));
+
 // Load environment variables
 dotenv.config();
 
