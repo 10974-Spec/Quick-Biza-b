@@ -9,10 +9,13 @@
 'use strict';
 
 const path = require('path');
+const { pathToFileURL } = require('url');
 const serverPath = path.join(__dirname, 'server.js');
 
-// Dynamic import bridges CJS → ESM
-import(serverPath).catch((err) => {
+// Dynamic import bridges CJS → ESM.
+// Using pathToFileURL is REQUIRED on Windows because drive letters (C:\) 
+// break dynamic imports by looking like URI protocols.
+import(pathToFileURL(serverPath).href).catch((err) => {
     process.stderr.write(`[loader] Fatal: ${err.message}\n${err.stack}\n`);
     process.exit(1);
 });
