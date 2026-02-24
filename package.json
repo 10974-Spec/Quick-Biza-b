@@ -1,6 +1,6 @@
 {
   "name": "quickbiza-backend",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Backend API for QuickBiza POS System",
   "main": "server.js",
   "type": "module",

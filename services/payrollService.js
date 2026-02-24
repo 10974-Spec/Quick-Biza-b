@@ -112,20 +112,25 @@ const PayrollService = {
      * Get All Employees Payroll Data
      */
     getAllEmployeesData: () => {
-        // Get all active users
-        const users = db.prepare("SELECT id, full_name, role, email, phone, profile_picture FROM users WHERE status = 'approved'").all();
-        const results = [];
+        try {
+            // Get all active users
+            const users = db.prepare("SELECT id, full_name, role, email, phone, profile_picture FROM users WHERE status = 'approved'").all();
+            const results = [];
 
-        for (const user of users) {
-            let data = db.prepare('SELECT * FROM employee_payroll_data WHERE user_id = ?').get(user.id);
-            if (!data) {
-                // Create default if missing
-                db.prepare('INSERT INTO employee_payroll_data (user_id) VALUES (?)').run(user.id);
-                data = db.prepare('SELECT * FROM employee_payroll_data WHERE user_id = ?').get(user.id);
+            for (const user of users) {
+                let data = db.prepare('SELECT * FROM employee_payroll_data WHERE user_id = ?').get(user.id);
+                if (!data) {
+                    // Create default if missing
+                    db.prepare('INSERT INTO employee_payroll_data (user_id) VALUES (?)').run(user.id);
+                    data = db.prepare('SELECT * FROM employee_payroll_data WHERE user_id = ?').get(user.id);
+                }
+                results.push({ ...data, ...user });
             }
-            results.push({ ...data, ...user });
+            return results;
+        } catch (error) {
+            console.error('\n[PayrollService Error] getAllEmployeesData failed:\n', error.message, error.stack, '\n');
+            throw error;
         }
-        return results;
     },
 
     /**

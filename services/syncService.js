@@ -182,119 +182,159 @@ function buildSaleDoc(s, saleItems, payments) {
 }
 
 async function syncSales(company_id) {
-    const sales = db.prepare('SELECT * FROM sales ORDER BY id').all();
-    const saleItems = db.prepare('SELECT * FROM sale_items').all();
-    const payments = db.prepare('SELECT * FROM payments').all();
-    const docs = sales.map(s => buildSaleDoc(
-        s,
-        saleItems.filter(i => i.sale_id === s.id),
-        payments.filter(p => p.sale_id === s.id)
-    ));
-    return upsertMany(CloudSale, docs, company_id);
+    try {
+        const sales = db.prepare('SELECT * FROM sales ORDER BY id').all();
+        const saleItems = db.prepare('SELECT * FROM sale_items').all();
+        const payments = db.prepare('SELECT * FROM payments').all();
+        const docs = sales.map(s => buildSaleDoc(
+            s,
+            saleItems.filter(i => i.sale_id === s.id),
+            payments.filter(p => p.sale_id === s.id)
+        ));
+        return await upsertMany(CloudSale, docs, company_id);
+    } catch (err) {
+        console.error(`\n[Sync Error - Sales] ${err.message}\n${err.stack}\n`);
+        throw err;
+    }
 }
 
 async function syncProducts(company_id) {
-    const rows = db.prepare('SELECT * FROM products').all();
-    const docs = rows.map(r => ({
-        local_id: r.id, name: r.name, category_id: r.category_id,
-        price: r.price, barcode: r.barcode, emoji: r.emoji,
-        description: r.description, active: r.active,
-        created_at: r.created_at ? new Date(r.created_at) : null
-    }));
-    return upsertMany(CloudProduct, docs, company_id);
+    try {
+        const rows = db.prepare('SELECT * FROM products').all();
+        const docs = rows.map(r => ({
+            local_id: r.id, name: r.name, category_id: r.category_id,
+            price: r.price, barcode: r.barcode, emoji: r.emoji,
+            description: r.description, active: r.active,
+            created_at: r.created_at ? new Date(r.created_at) : null
+        }));
+        return await upsertMany(CloudProduct, docs, company_id);
+    } catch (err) {
+        console.error(`\n[Sync Error - Products] ${err.message}\n${err.stack}\n`);
+        throw err;
+    }
 }
 
 async function syncCustomers(company_id) {
-    const rows = db.prepare('SELECT * FROM customers').all();
-    const docs = rows.map(r => ({
-        local_id: r.id, name: r.name, phone: r.phone, email: r.email,
-        birthday: r.birthday ? new Date(r.birthday) : null,
-        loyalty_points: r.loyalty_points, store_credit: r.store_credit,
-        created_at: r.created_at ? new Date(r.created_at) : null
-    }));
-    return upsertMany(CloudCustomer, docs, company_id);
+    try {
+        const rows = db.prepare('SELECT * FROM customers').all();
+        const docs = rows.map(r => ({
+            local_id: r.id, name: r.name, phone: r.phone, email: r.email,
+            birthday: r.birthday ? new Date(r.birthday) : null,
+            loyalty_points: r.loyalty_points, store_credit: r.store_credit,
+            created_at: r.created_at ? new Date(r.created_at) : null
+        }));
+        return await upsertMany(CloudCustomer, docs, company_id);
+    } catch (err) {
+        console.error(`\n[Sync Error - Customers] ${err.message}\n${err.stack}\n`);
+        throw err;
+    }
 }
 
 async function syncOrders(company_id) {
-    const rows = db.prepare('SELECT * FROM orders').all();
-    const docs = rows.map(r => ({
-        local_id: r.id, customer_id: r.customer_id,
-        item_description: r.item_description, total_price: r.total_price,
-        deposit_paid: r.deposit_paid, balance: r.balance,
-        pickup_date: r.pickup_date ? new Date(r.pickup_date) : null,
-        status: r.status, notes: r.notes, created_by: r.created_by,
-        created_at: r.created_at ? new Date(r.created_at) : null
-    }));
-    return upsertMany(CloudOrder, docs, company_id);
+    try {
+        const rows = db.prepare('SELECT * FROM orders').all();
+        const docs = rows.map(r => ({
+            local_id: r.id, customer_id: r.customer_id,
+            item_description: r.item_description, total_price: r.total_price,
+            deposit_paid: r.deposit_paid, balance: r.balance,
+            pickup_date: r.pickup_date ? new Date(r.pickup_date) : null,
+            status: r.status, notes: r.notes, created_by: r.created_by,
+            created_at: r.created_at ? new Date(r.created_at) : null
+        }));
+        return await upsertMany(CloudOrder, docs, company_id);
+    } catch (err) {
+        console.error(`\n[Sync Error - Orders] ${err.message}\n${err.stack}\n`);
+        throw err;
+    }
 }
 
 async function syncInventory(company_id) {
-    const raw = db.prepare(`
-        SELECT ir.*, i.name as ingredient_name, i.unit, i.low_stock_threshold
-        FROM inventory_raw ir LEFT JOIN ingredients i ON i.id = ir.ingredient_id
-    `).all();
-    const rawDocs = raw.map(r => ({
-        local_id: r.id, ingredient_id: r.ingredient_id,
-        ingredient_name: r.ingredient_name, quantity: r.quantity,
-        unit: r.unit, low_stock_threshold: r.low_stock_threshold,
-        last_updated: r.last_updated ? new Date(r.last_updated) : null
-    }));
+    try {
+        const raw = db.prepare(`
+            SELECT ir.*, i.name as ingredient_name, i.unit, i.low_stock_threshold
+            FROM inventory_raw ir LEFT JOIN ingredients i ON i.id = ir.ingredient_id
+        `).all();
+        const rawDocs = raw.map(r => ({
+            local_id: r.id, ingredient_id: r.ingredient_id,
+            ingredient_name: r.ingredient_name, quantity: r.quantity,
+            unit: r.unit, low_stock_threshold: r.low_stock_threshold,
+            last_updated: r.last_updated ? new Date(r.last_updated) : null
+        }));
 
-    const finished = db.prepare(`
-        SELECT inf.*, p.name as product_name
-        FROM inventory_finished inf LEFT JOIN products p ON p.id = inf.product_id
-    `).all();
-    const finishedDocs = finished.map(r => ({
-        local_id: r.id, product_id: r.product_id,
-        product_name: r.product_name, quantity: r.quantity,
-        last_updated: r.last_updated ? new Date(r.last_updated) : null
-    }));
+        const finished = db.prepare(`
+            SELECT inf.*, p.name as product_name
+            FROM inventory_finished inf LEFT JOIN products p ON p.id = inf.product_id
+        `).all();
+        const finishedDocs = finished.map(r => ({
+            local_id: r.id, product_id: r.product_id,
+            product_name: r.product_name, quantity: r.quantity,
+            last_updated: r.last_updated ? new Date(r.last_updated) : null
+        }));
 
-    const r1 = await upsertMany(CloudInventoryRaw, rawDocs, company_id);
-    const r2 = await upsertMany(CloudInventoryFinished, finishedDocs, company_id);
-    return r1 + r2;
+        const r1 = await upsertMany(CloudInventoryRaw, rawDocs, company_id);
+        const r2 = await upsertMany(CloudInventoryFinished, finishedDocs, company_id);
+        return r1 + r2;
+    } catch (err) {
+        console.error(`\n[Sync Error - Inventory] ${err.message}\n${err.stack}\n`);
+        throw err;
+    }
 }
 
 async function syncPurchases(company_id) {
-    const purchases = db.prepare(`
-        SELECT p.*, s.name as supplier_name FROM purchases p
-        LEFT JOIN suppliers s ON s.id = p.supplier_id
-    `).all();
-    const purchaseItems = db.prepare('SELECT * FROM purchase_items').all();
-    const docs = purchases.map(r => ({
-        local_id: r.id, supplier_id: r.supplier_id,
-        supplier_name: r.supplier_name, total_amount: r.total_amount,
-        payment_status: r.payment_status, amount_paid: r.amount_paid,
-        created_by: r.created_by,
-        created_at: r.created_at ? new Date(r.created_at) : null,
-        items: purchaseItems.filter(i => i.purchase_id === r.id).map(i => ({
-            ingredient_id: i.ingredient_id, quantity: i.quantity,
-            unit_cost: i.unit_cost, subtotal: i.subtotal
-        }))
-    }));
-    return upsertMany(CloudPurchase, docs, company_id);
+    try {
+        const purchases = db.prepare(`
+            SELECT p.*, s.name as supplier_name FROM purchases p
+            LEFT JOIN suppliers s ON s.id = p.supplier_id
+        `).all();
+        const purchaseItems = db.prepare('SELECT * FROM purchase_items').all();
+        const docs = purchases.map(r => ({
+            local_id: r.id, supplier_id: r.supplier_id,
+            supplier_name: r.supplier_name, total_amount: r.total_amount,
+            payment_status: r.payment_status, amount_paid: r.amount_paid,
+            created_by: r.created_by,
+            created_at: r.created_at ? new Date(r.created_at) : null,
+            items: purchaseItems.filter(i => i.purchase_id === r.id).map(i => ({
+                ingredient_id: i.ingredient_id, quantity: i.quantity,
+                unit_cost: i.unit_cost, subtotal: i.subtotal
+            }))
+        }));
+        return await upsertMany(CloudPurchase, docs, company_id);
+    } catch (err) {
+        console.error(`\n[Sync Error - Purchases] ${err.message}\n${err.stack}\n`);
+        throw err;
+    }
 }
 
 async function syncExpenses(company_id) {
-    const rows = db.prepare('SELECT * FROM expenses').all();
-    const docs = rows.map(r => ({
-        local_id: r.id, category: r.category, description: r.description,
-        amount: r.amount,
-        expense_date: r.expense_date ? new Date(r.expense_date) : null,
-        created_by: r.created_by,
-        created_at: r.created_at ? new Date(r.created_at) : null
-    }));
-    return upsertMany(CloudExpense, docs, company_id);
+    try {
+        const rows = db.prepare('SELECT * FROM expenses').all();
+        const docs = rows.map(r => ({
+            local_id: r.id, category: r.category, description: r.description,
+            amount: r.amount,
+            expense_date: r.expense_date ? new Date(r.expense_date) : null,
+            created_by: r.created_by,
+            created_at: r.created_at ? new Date(r.created_at) : null
+        }));
+        return await upsertMany(CloudExpense, docs, company_id);
+    } catch (err) {
+        console.error(`\n[Sync Error - Expenses] ${err.message}\n${err.stack}\n`);
+        throw err;
+    }
 }
 
 async function syncStaff(company_id) {
-    const rows = db.prepare('SELECT id, username, full_name, role, status, created_at FROM users').all();
-    const docs = rows.map(r => ({
-        local_id: r.id, username: r.username, full_name: r.full_name,
-        role: r.role, status: r.status,
-        created_at: r.created_at ? new Date(r.created_at) : null
-    }));
-    return upsertMany(CloudStaff, docs, company_id);
+    try {
+        const rows = db.prepare('SELECT id, username, full_name, role, status, created_at FROM users').all();
+        const docs = rows.map(r => ({
+            local_id: r.id, username: r.username, full_name: r.full_name,
+            role: r.role, status: r.status,
+            created_at: r.created_at ? new Date(r.created_at) : null
+        }));
+        return await upsertMany(CloudStaff, docs, company_id);
+    } catch (err) {
+        console.error(`\n[Sync Error - Staff/Users] ${err.message}\n${err.stack}\n`);
+        throw err;
+    }
 }
 
 async function syncSettings(company_id) {

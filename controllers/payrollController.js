@@ -76,6 +76,7 @@ const PayrollController = {
             const employees = PayrollService.getAllEmployeesData();
             res.json(employees);
         } catch (error) {
+            console.error('\n[Payroll API Error] Failed to fetch employees:\n', error.message, error.stack, '\n');
             res.status(500).json({ error: error.message });
         }
     },
