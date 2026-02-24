@@ -1,6 +1,6 @@
 
 import db from './database/db.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const user = db.prepare('SELECT * FROM users WHERE username = ?').get('admin');
 

@@ -2,7 +2,7 @@ import express from 'express';
 import { companyService } from '../services/companyService.js';
 import { licenseService } from '../services/licenseService.js';
 import db from '../database/db.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 

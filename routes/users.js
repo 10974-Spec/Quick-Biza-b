@@ -2,7 +2,7 @@ import express from 'express';
 import db from '../database/db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import activityLogger from '../services/activityLogger.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import multer from 'multer';
 
 import path from 'path';

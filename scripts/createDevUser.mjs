@@ -4,7 +4,7 @@
  * Run: node backend/scripts/createDevUser.mjs
  */
 import Database from 'better-sqlite3';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
